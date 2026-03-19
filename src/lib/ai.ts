@@ -1,9 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NewsItem } from "./sources";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// MiniMax API (OpenAI 兼容格式)
+const MINIMAX_API_URL = "https://api.minimax.chat/v1/text/chatcompletion_v2";
 
 export interface Newsletter {
   date: string;
@@ -40,13 +38,7 @@ export async function generateNewsletter(
     )
     .join("\n\n");
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
-    messages: [
-      {
-        role: "user",
-        content: `你是一位资深的 AI/大模型行业分析师，负责撰写每日行业日报。
+  const prompt = `你是一位资深的 AI/大模型行业分析师，负责撰写每日行业日报。
 
 今天是 ${today}。以下是今天采集到的 AI 领域新闻：
 
@@ -92,13 +84,40 @@ ${newsDigest}
       "items": ["动态1", "动态2"]
     }
   ]
-}`,
-      },
-    ],
+}`;
+
+  const response = await fetch(MINIMAX_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.MINIMAX_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: process.env.MINIMAX_MODEL || "MiniMax-Text-01",
+      messages: [
+        {
+          role: "system",
+          content:
+            "你是一位资深的 AI/大模型行业分析师。请严格按照用户要求的 JSON 格式返回内容，不要添加任何额外文字或 markdown 标记。",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 4096,
+      temperature: 0.7,
+    }),
   });
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`MiniMax API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
   const responseText =
-    message.content[0].type === "text" ? message.content[0].text : "";
+    data.choices?.[0]?.message?.content || data.reply || "";
 
   try {
     // 尝试直接解析 JSON
@@ -108,7 +127,7 @@ ${newsDigest}
       .trim();
     return JSON.parse(cleaned) as Newsletter;
   } catch {
-    console.error("Failed to parse AI response, using fallback");
+    console.error("Failed to parse AI response:", responseText.slice(0, 200));
     return {
       date: today,
       highlights: [
