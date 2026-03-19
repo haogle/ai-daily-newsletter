@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         success: true,
         date: newsletter.date,
         newsCount: news.length,
-        highlights: newsletter.highlights.length,
+        sections: newsletter.thematicSections.length,
       });
     } else {
       console.error("❌ Failed to send:", result.error);
