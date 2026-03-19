@@ -115,7 +115,7 @@ ${newsDigest}
           content: prompt,
         },
       ],
-      max_tokens: 8192,
+      max_tokens: 4096,
       temperature: 0.7,
     }),
   });

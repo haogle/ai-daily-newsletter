@@ -1,7 +1,7 @@
 import Parser from "rss-parser";
 
 const parser = new Parser({
-  timeout: 10000,
+  timeout: 5000,
   headers: {
     "User-Agent": "AI-Newsletter-Bot/1.0",
   },
@@ -53,44 +53,16 @@ const RSS_FEEDS = [
     url: "https://ai.meta.com/blog/rss/",
   },
 
-  // === AI 深度分析 ===
-  {
-    name: "The Gradient",
-    url: "https://thegradient.pub/rss/",
-  },
-  {
-    name: "Interconnects (Nathan Lambert)",
-    url: "https://www.interconnects.ai/feed",
-  },
-  {
-    name: "Simon Willison",
-    url: "https://simonwillison.net/atom/everything/",
-  },
-
-  // === 开发者工具 & Infra ===
-  {
-    name: "LangChain Blog",
-    url: "https://blog.langchain.dev/rss/",
-  },
-
   // === 中文 AI 新闻 ===
   {
     name: "机器之心",
     url: "https://www.jiqizhixin.com/rss",
-  },
-  {
-    name: "量子位",
-    url: "https://www.qbitai.com/feed",
   },
 
   // === 社区 ===
   {
     name: "Hacker News (AI)",
     url: "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+Claude+OR+transformer&points=50",
-  },
-  {
-    name: "Reddit r/MachineLearning",
-    url: "https://www.reddit.com/r/MachineLearning/hot.json?limit=10&raw_json=1",
   },
 ];
 
@@ -107,11 +79,6 @@ async function fetchFeed(feed: {
   url: string;
 }): Promise<NewsItem[]> {
   try {
-    // Reddit JSON API 特殊处理
-    if (feed.url.includes("reddit.com") && feed.url.endsWith(".json?limit=10&raw_json=1")) {
-      return await fetchReddit(feed);
-    }
-
     const result = await parser.parseURL(feed.url);
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 36 * 60 * 60 * 1000); // 36h window
@@ -121,7 +88,7 @@ async function fetchFeed(feed: {
         const pubDate = item.pubDate ? new Date(item.pubDate) : now;
         return pubDate >= oneDayAgo;
       })
-      .slice(0, 8)
+      .slice(0, 5)
       .map((item) => ({
         title: item.title || "Untitled",
         link: item.link || "",
@@ -133,29 +100,6 @@ async function fetchFeed(feed: {
       }));
   } catch (error) {
     console.error(`Failed to fetch ${feed.name}: ${error}`);
-    return [];
-  }
-}
-
-async function fetchReddit(feed: {
-  name: string;
-  url: string;
-}): Promise<NewsItem[]> {
-  try {
-    const res = await fetch(feed.url, {
-      headers: { "User-Agent": "AI-Newsletter-Bot/1.0" },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const posts = data?.data?.children || [];
-    return posts.slice(0, 8).map((post: any) => ({
-      title: post.data?.title || "Untitled",
-      link: `https://reddit.com${post.data?.permalink || ""}`,
-      source: feed.name,
-      pubDate: new Date((post.data?.created_utc || 0) * 1000).toISOString(),
-      snippet: cleanSnippet(post.data?.selftext || "").slice(0, 300),
-    }));
-  } catch {
     return [];
   }
 }
